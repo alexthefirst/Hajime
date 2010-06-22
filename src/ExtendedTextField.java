@@ -9,7 +9,7 @@ import javax.microedition.lcdui.*;
 import java.io.*;
 import javax.microedition.io.*;
 import javax.microedition.io.file.*;
-/*
+
 import org.hecl.Interp;
 import org.hecl.HeclException;
 import org.hecl.HeclTask;
@@ -21,11 +21,11 @@ import org.hecl.misc.HeclUtils;
 import org.hecl.net.HttpCmd;
 import org.hecl.net.Base64Cmd;
 import org.hecl.rms.RMSCmd;
-*/
+/**/
 
 public class ExtendedTextField extends Canvas implements Runnable, CommandListener
 {
-	private Command exitCommand, saveCommand, loadCommand;
+	private Command exitCommand, saveCommand, loadCommand, evalCommand;
 	
 	public SimpleTextEditor midlet;
 	/* TODO:
@@ -86,12 +86,14 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		setCommandListener(this);
 		
 		exitCommand = new Command("Exit", Command.EXIT, 1);
-		saveCommand = new Command("Save", Command.ITEM, 2);
-		loadCommand = new Command("Load", Command.ITEM, 3);
+		loadCommand = new Command("Load", Command.ITEM, 2);
+		saveCommand = new Command("Save", Command.ITEM, 3);
+		evalCommand = new Command("Eval", Command.ITEM, 4);
 		
-		addCommand(saveCommand);
-		addCommand(loadCommand);
 		addCommand(exitCommand);
+		addCommand(loadCommand);
+		addCommand(saveCommand);
+		addCommand(evalCommand);
 		
 		new Thread(this).start();
 		inputFont = Font.getDefaultFont();
@@ -172,6 +174,19 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 			}
 
 			setText(text);
+		}
+		else if(c == evalCommand)
+		{
+			Runnable r =
+			new Runnable()
+			{
+				public void run()
+				{
+					midlet.runScript(getText());
+				};
+			};
+			
+			(new Thread(r)).start();
 		}
 	}
 	
@@ -283,6 +298,7 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 
 	protected void keyRepeated(int keyCode)
 	{
+		currentKeyStep = 0;
 		int gameAction = getGameAction(keyCode);
 		// System.out.println(cursorX + " " + cursorY);
 		if(keyCode == DELETE)
