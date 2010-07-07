@@ -1,59 +1,33 @@
-// import javax.microedition.lcdui.Canvas;
-// import javax.microedition.lcdui.Font;
-// import javax.microedition.lcdui.Graphics;
 import java.util.Vector;
 
 import javax.microedition.lcdui.*;
-// import javax.microedition.midlet.*;
 
+import java.util.*;
 import java.io.*;
 import javax.microedition.io.*;
 import javax.microedition.io.file.*;
 
-import org.hecl.Interp;
-import org.hecl.HeclException;
-import org.hecl.HeclTask;
-import org.hecl.ListThing;
-import org.hecl.ObjectThing;
-import org.hecl.Thing;
-import org.hecl.midp20.MidletCmd;
-import org.hecl.misc.HeclUtils;
-import org.hecl.net.HttpCmd;
-import org.hecl.net.Base64Cmd;
-import org.hecl.rms.RMSCmd;
-/**/
-
 public class ExtendedTextField extends Canvas implements Runnable, CommandListener
 {
-	private Command exitCommand, saveCommand, loadCommand, evalCommand;
+	private Command exit, save, open, eval, output, cls;
 	
 	public SimpleTextEditor midlet;
-	/* TODO:
-	" 0",
-	".,?!1@'-_():/*%#+<>=",
-	"abc2",
-	"def3",
-	"ghi4",
-	"jkl5",
-	"mno6",
-	"pqrs7",
-	"tuv8",
-	"wxyz9",
-	*/
-	static final char[] KEY_NUM1_CHARS = {'.', ',', '_', '1', ':', ';', '=', '?', '!', '&', '\\', '@'}; // {'.', '?', '!'};
-	static final char[] KEY_NUM2_CHARS = {'a', 'b', 'c', '2', '#'};
-	static final char[] KEY_NUM3_CHARS = {'d', 'e', 'f', '3', '<', '>'};
-	static final char[] KEY_NUM4_CHARS = {'g', 'h', 'i', '4', '(', ')'};
-	static final char[] KEY_NUM5_CHARS = {'j', 'k', 'l', '5', '[', ']'};
-	static final char[] KEY_NUM6_CHARS = {'m', 'n', 'o', '6', '{', '}'};
-	static final char[] KEY_NUM7_CHARS = {'p', 'q', 'r', 's', '7', '$'};
-	static final char[] KEY_NUM8_CHARS = {'t', 'u', 'v', '8', '"', '\''};
-	static final char[] KEY_NUM9_CHARS = {'w', 'x', 'y', 'z', '9'};
-	static final char[] KEY_NUM0_CHARS = {'0', '+', '-', '*', '/', '%'};
 	
-	// static final char[] KEY_STAR_CHARS
-	
-	static final char[] KEY_POUND_CHARS = {' '};
+	private FileBrowser fileBrowser;
+
+	static final String[] keyChars =
+	{
+		"0+-*/\\%=",
+		".,-_?!:;&/\\^|~1",
+		"abc2#",
+		"def3<>",
+		"ghi4()",
+		"jkl5[]",
+		"mno6{}",
+		"pqrs7$",
+		"tuv8\"'@",
+		"wxyz9&|!",
+	};
 	
 	boolean isUppercase = false;
 	
@@ -65,10 +39,11 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 	Font inputFont = null;
 	int inputWidth = 0;
 	int inputHeight = 0;
+	int linesOnScreen = 0;
 	
 	long lastKeyTimestamp = 0;
 	long maxKeyDelay = 500L;
-	// int caretIndex = 0;
+	
 	int caretLeft = 0;
 	boolean caretBlinkOn = true;
 	long caretBlinkDelay = 500L;
@@ -77,7 +52,22 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 	
 	char[] currentChars;
 	
+	// TODO: manual keyboard
 	public static final int DELETE = -8;
+	
+	boolean isOutput = false;
+	String currentCode;
+	int currentX = 0;
+	int currentY = 0;
+	
+	private class FileBrowserStatus
+	{
+		public static final short None = 0;
+		public static final short Open = 1; 
+		public static final short Save = 2;
+	};
+	
+	private short fileBrowserStatus = FileBrowserStatus.None;
 	
 	public ExtendedTextField()
 	{
@@ -85,97 +75,84 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		
 		setCommandListener(this);
 		
-		exitCommand = new Command("Exit", Command.EXIT, 1);
-		loadCommand = new Command("Load", Command.ITEM, 2);
-		saveCommand = new Command("Save", Command.ITEM, 3);
-		evalCommand = new Command("Eval", Command.ITEM, 4);
+		// TODO: setupMenu if(isOutput) ?
+		exit = new Command("Exit", Command.EXIT, 1);
+		open = new Command("Open", Command.ITEM, 2);
+		save = new Command("Save", Command.ITEM, 3);
+		eval = new Command("Eval", Command.ITEM, 4);
+		output = new Command("Output", Command.ITEM, 5);
+		cls = new Command("Clear", Command.ITEM, 6);
 		
-		addCommand(exitCommand);
-		addCommand(loadCommand);
-		addCommand(saveCommand);
-		addCommand(evalCommand);
+		addCommand(exit);
+		addCommand(open);
+		addCommand(save);
+		addCommand(eval);
+		addCommand(output);
+		addCommand(cls);
+		
+		// fileBrowser = new FileBrowser();
+		
+		// fileBrowser = new FileBrowser(this, midlet.display);
 		
 		new Thread(this).start();
+		
+		// TODO: change font size
 		inputFont = Font.getDefaultFont();
 		inputWidth = getWidth();
 		inputHeight = inputFont.getHeight();
+		linesOnScreen = getHeight()/inputHeight;
 		
 		addNewLine(0);
 	}
 	
+	// TODO: move to midlet?
 	public void commandAction(Command c, Displayable s)
 	{
-		if(c == exitCommand)
+		if(c == exit)
 		{
 			// Cleanup and notify that the MIDlet has exited
 			midlet.destroyApp(false);
 			midlet.notifyDestroyed();
 		}
-		else if(c == saveCommand)
+		else if(c == save)
 		{
-			Runnable r =
-			new Runnable()
+			fileBrowserStatus = FileBrowserStatus.Save;
+			// 
+			fileBrowser = new FileBrowser(this, midlet.display, midlet.current);
+			// fileBrowser.browse(null, this, false, midlet.display);
+		}
+		else if(c == open)
+		{
+			fileBrowserStatus = FileBrowserStatus.Open;
+			// 
+			fileBrowser = new FileBrowser(this, midlet.display, midlet.current);
+			// fileBrowser.browse(null, this, false, midlet.display);
+		}
+		
+		else if(c == FileBrowser.select)
+		{
+			switch(fileBrowserStatus)
 			{
-				public void run()
-				{
-					String text = getText();
-					try
-					{
-						FileConnection fc = (FileConnection)Connector.open("file:///e:/textEditor.txt", Connector.WRITE);
-
-						fc.truncate(0);
-						
-						OutputStream os = fc.openOutputStream(0);
-						
-						os.flush();
-						
-						os.write(text.getBytes(), 0, text.getBytes().length);
-						
-						os.flush();
-						
-						os.close();
-						
-						fc.close();
-					}
-					catch(Exception ex)
-					{
-						System.out.println("Exception: " + ex.toString());
-					}
-				};
-			};
+				case FileBrowserStatus.Open:
+					Open();
+					break;
+				case FileBrowserStatus.Save:
+					Save();
+					break;
+				case FileBrowserStatus.None:
+					break;
+				default: break;
+			}
 			
-			(new Thread(r)).start();
+			midlet.display.setCurrent(this);
 		}
-		else if(c == loadCommand)
+		
+		else if(c == FileBrowser.cancel)
 		{
-			String text = "";
-			try
-			{
-				FileConnection fc = (FileConnection)Connector.open("file:///e:/textEditor.txt");
-
-				if(fc.exists())
-				{
-					byte[] b = new byte[1024];
-					InputStream is = fc.openInputStream();
-					int length = is.read(b, 0, 1024);
-
-					is.close();
-
-					if(length > 0)
-					{
-						text = new String(b, 0, length);
-					}
-				}
-				fc.close();
-			}
-			catch(Exception ex)
-			{
-				System.out.println("Exception: " + ex.toString());
-			}
-
-			setText(text);
+			midlet.display.setCurrent(this);
 		}
-		else if(c == evalCommand)
+		
+		else if(c == eval)
 		{
 			Runnable r =
 			new Runnable()
@@ -188,43 +165,122 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 			
 			(new Thread(r)).start();
 		}
+		else if(c == output)
+		{
+			isOutput = !isOutput;
+			if(isOutput)
+			{
+				removeCommand(output);
+				output = new Command("Code", Command.ITEM, 5);
+				addCommand(output);
+				
+				currentX = getCursorX();
+				currentY = getCursorY();
+				setCursorPosition(0, 0);
+				updateCaretPosition();
+				
+				currentCode = getText();
+				setText(midlet.getOutput());
+			}
+			else
+			{
+				removeCommand(output);
+				output = new Command("Output", Command.ITEM, 5);
+				addCommand(output);
+				
+				setText(currentCode);
+				setCursorPosition(currentX, currentY);
+				updateCaretPosition();
+			}
+		}
+		else if(c == cls)
+		{
+			setCursorPosition(0, 0);
+			updateCaretPosition();
+			midlet.clearOutput();
+			setText("");
+		}
+	}
+
+	private void Save()
+	{
+		Runnable r =
+		new Runnable()
+		{
+			public void run()
+			{
+				try
+				{
+					fileBrowser.writeFile(getText());
+				}
+				catch(Exception e)
+				{
+					System.out.println(e);
+				}
+			};
+		};
+		
+		(new Thread(r)).start();
 	}
 	
+	private void Open()
+	{
+		Runnable r =
+		new Runnable()
+		{
+			public void run()
+			{
+				try
+				{
+					setText(fileBrowser.readFile());
+				}
+				catch(Exception e)
+				{
+					System.out.println(e);
+				}
+			};
+		};
+		
+		(new Thread(r)).start();
+	}
+
 	public char[] getChars(int keyCode)
 	{
-		switch(keyCode)
+		try
 		{
-			case Canvas.KEY_NUM1: return KEY_NUM1_CHARS;
-			case Canvas.KEY_NUM2: return KEY_NUM2_CHARS;
-			case Canvas.KEY_NUM3: return KEY_NUM3_CHARS;
-			case Canvas.KEY_NUM4: return KEY_NUM4_CHARS;
-			case Canvas.KEY_NUM5: return KEY_NUM5_CHARS;
-			case Canvas.KEY_NUM6: return KEY_NUM6_CHARS;
-			case Canvas.KEY_NUM7: return KEY_NUM7_CHARS;
-			case Canvas.KEY_NUM8: return KEY_NUM8_CHARS;
-			case Canvas.KEY_NUM9: return KEY_NUM9_CHARS;
-			case Canvas.KEY_NUM0: return KEY_NUM0_CHARS;
-			case Canvas.KEY_POUND:return KEY_POUND_CHARS;
+			if(keyCode >= KEY_NUM0 && keyCode <= KEY_NUM9)
+			{
+				return keyChars[keyCode - Canvas.KEY_NUM0].toCharArray();
+			}
+			else if(keyCode == KEY_POUND)
+			{
+				char[] chars = new char[1];
+
+				chars[0] = ' ';
+
+				return chars;
+			}
+		}
+		catch(Exception ex)
+		{
+
 		}
 		return null;
 	}
-	
+
 	public char[] getNumbers(int keyCode)
 	{
 		char[] chars = new char[1];
-		switch(keyCode)
+		if(keyCode >= KEY_NUM0 && keyCode <= KEY_NUM9)
 		{
-			case Canvas.KEY_NUM1: chars[0] = '1';return chars;
-			case Canvas.KEY_NUM2: chars[0] = '2';return chars;
-			case Canvas.KEY_NUM3: chars[0] = '3';return chars;
-			case Canvas.KEY_NUM4: chars[0] = '4';return chars;
-			case Canvas.KEY_NUM5: chars[0] = '5';return chars;
-			case Canvas.KEY_NUM6: chars[0] = '6';return chars;
-			case Canvas.KEY_NUM7: chars[0] = '7';return chars;
-			case Canvas.KEY_NUM8: chars[0] = '8';return chars;
-			case Canvas.KEY_NUM9: chars[0] = '9';return chars;
-			case Canvas.KEY_NUM0: chars[0] = '0';return chars;
-			case Canvas.KEY_POUND:return KEY_POUND_CHARS;
+			chars[0] = String.valueOf(keyCode - Canvas.KEY_NUM0).charAt(0);
+			return chars;
+		}
+		else if(keyCode == KEY_POUND)
+		{
+			chars[0] = ' ';
+
+			return chars;
 		}
 		return null;
 	}
@@ -235,22 +291,12 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		int y = getCursorY();
 		
 		caretLeft = inputFont.substringWidth(vectorLines.elementAt(y).toString(), 0, x);
-		/*
-		if(caretLeft + inputTranslationX < 0)
-		{
-			inputTranslationX = - caretLeft;
-		}
-		else if(caretLeft + inputTranslationX > inputWidth)
-		{
-			inputTranslationX = inputWidth - caretLeft;
-		}
-		*/
 	}
 	
 	protected void keyPressed(int keyCode)
 	{
 		int gameAction = getGameAction(keyCode);
-		// System.out.println(cursorX + " " + cursorY);
+		
 		if(keyCode == DELETE)
 		{
 			removeCharacter();
@@ -300,16 +346,22 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 	{
 		currentKeyStep = 0;
 		int gameAction = getGameAction(keyCode);
-		// System.out.println(cursorX + " " + cursorY);
+		
 		if(keyCode == DELETE)
 		{
 			removeCharacter();
 			updateCaretPosition();
 		}
-		else if((keyCode >= KEY_NUM0 && keyCode <= KEY_NUM9) || (keyCode == KEY_POUND))
+		else if((keyCode >= KEY_NUM0 && keyCode <= KEY_NUM9))
 		{
 			writeKeyPressed(keyCode, true);
 			updateCaretPosition();
+		}
+		else if(keyCode == KEY_POUND)
+		{
+			writeKeyPressed(keyCode, true);
+			updateCaretPosition();
+			goToNextChar = true;
 		}
 		else if(gameAction == Canvas.UP)
 		{
@@ -338,7 +390,7 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 	}
 	
-	public void writeKeyPressed(int keyCode, boolean isNumeric)
+	public void writeKeyPressed(int keyCode, boolean isRepeated)
 	{
 		if(goToNextChar || keyCode != lastPressedKey)
 		{
@@ -351,7 +403,7 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 			currentKeyStep++;
 		}
 		
-		if(isNumeric)
+		if(isRepeated)
 		{
 			currentChars = getNumbers(keyCode);
 		}
@@ -433,40 +485,111 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		int x = getCursorX();
 		int y = getCursorY();
 		
-		// inputFont.charWidth(currentChars[i])+ 4, inputHeight + 4
+		int translationX = caretLeft - (getWidth() - 5);
+		int translationY = y*inputHeight - (getHeight() - 40);
 		
-		if(caretLeft > (getWidth() - 5))
+		if(translationX > 0)
 		{
-			g.translate(-(caretLeft - (getWidth() - 5)), 0);
+			g.translate(-translationX, 0);
 		}
 		
-		if(y*inputHeight > (getHeight() - 40)) // (inputHeight + 4)
+		if(translationY > 0)
 		{
-			g.translate(0, -(y*inputHeight - (getHeight() - 40))); // (inputHeight + 4)
+			g.translate(0, -translationY);
+			
+			// System.out.println((g.getTranslateY())/inputHeight);
+			// getRelativeY() (g.getTranslateY())/inputHeight
+			
+			displayLines(g, y - linesOnScreen);
+		}
+		else
+		{
+			displayLines(g, 0);
 		}
 		
-		displayLines(g);
 		if(caretBlinkOn && goToNextChar)
 		{
 			displayCursor(g);
 		}
 		
 		
-		if(caretLeft > (getWidth() - 5))
+		if(translationX > 0)
 		{
-			g.translate(+(caretLeft - (getWidth() - 5)), 0);
+			g.translate(translationX, 0);
 		}
 		
-		if(y*inputHeight > (getHeight() - 40)) // (inputHeight + 4)
+		if(translationY > 0)
 		{
-			g.translate(0, +(y*inputHeight - (getHeight() - 40))); // (inputHeight + 4)
-			// caretLeft, (y)*inputHeight
-			// g.translate(inputTranslationX, 0);
+			g.translate(0, translationY);
 		}
 		
 		if(!goToNextChar)
 		{
+			// TODO: translate ?
 			displayCharacterMap(g);
+		}
+	}
+	
+	// display
+	// not used
+	void displayLines(Graphics g)
+	{
+		for(int y = 0; y < vectorLines.size(); y++)
+		{
+			g.drawString(vectorLines.elementAt(y).toString(), 0, y*inputHeight, Graphics.LEFT | Graphics.TOP);
+		}
+	}
+	
+	void displayLines(Graphics g, int yStart)
+	{
+		// (1 + 2, depends on font size)
+		for(int y = Math.max(0, yStart); y < Math.min(yStart + linesOnScreen + 1 + 2, vectorLines.size()); y++)
+		{
+			g.drawString(vectorLines.elementAt(y).toString(), 0, y*inputHeight, Graphics.LEFT | Graphics.TOP);
+		}
+	}
+	
+	// not used
+	int getRelativeY()
+	{
+		int y = getCursorY();
+		return (y - (y/linesOnScreen)*y);
+	}
+	
+	void displayCursor(Graphics g)
+	{
+		int x = getCursorX();
+		int y = getCursorY();
+		if(x >= 0 && x <= vectorLines.elementAt(y).toString().length())
+		{
+			g.drawLine(caretLeft, (y)*inputHeight, caretLeft, (y+1)*inputHeight);
+		}
+	}
+	
+	void displayCharacterMap(Graphics g)
+	{
+		if(currentChars != null)
+		{
+			g.setColor(0xffffff);
+			g.fillRect(0, getHeight() - inputHeight, getWidth(), inputHeight);
+			g.setColor(0x000000);
+			
+			for(int i = 0; i < currentChars.length; i++)
+			{
+				char ch = currentChars[i];
+				if(isUppercase)
+				{
+					ch = String.valueOf(currentChars[i]).toUpperCase().charAt(0);
+				}
+				
+				// TODO: if i*12 > getWidth() ?
+				
+				g.drawChar(ch, i*12, getHeight() - inputHeight, Graphics.LEFT | Graphics.TOP);
+				if(currentChars[currentKeyStep] == currentChars[i])
+				{
+					g.drawRect(i*12 - 2, getHeight() - inputHeight - 2, inputFont.charWidth(ch)+ 4, inputHeight + 4);
+				}
+			}
 		}
 	}
 	
@@ -876,7 +999,8 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 	}
 	
-	boolean isEmptyLine(int y) // TODO: throws
+	// TODO: throws
+	boolean isEmptyLine(int y)
 	{
 		return (((StringBuffer)vectorLines.elementAt(y)).length() == 0);
 	}
@@ -978,69 +1102,11 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 			stringBuffer.append(chars[i]);
 		}
 		
+		if(chars.length == 0)
+		{
+			vectorLines.addElement(stringBuffer);
+		}
+		
 		setCursorPosition(0, 0);
 	}
-	
-	// display
-	void displayLines(Graphics g)
-	{
-		for(int y = 0; y < vectorLines.size(); y++)
-		{
-			g.drawString(vectorLines.elementAt(y).toString(), 0, y*inputHeight, Graphics.LEFT | Graphics.TOP);
-		}
-	}
-	
-	void displayCursor(Graphics g)
-	{
-		int x = getCursorX();
-		int y = getCursorY();
-		
-		if(x >= 0 && x <= vectorLines.elementAt(y).toString().length())
-		{
-			g.drawLine(caretLeft, (y)*inputHeight, caretLeft, (y+1)*inputHeight);
-		}
-	}
-	
-	void displayCharacterMap(Graphics g)
-	{
-		if(currentChars != null)
-		{
-			g.setColor(0xffffff);
-			g.fillRect(0, getHeight() - inputHeight, getWidth(), inputHeight);
-			g.setColor(0x000000);
-			
-			for(int i = 0; i < currentChars.length; i++)
-			{
-				char ch = currentChars[i];
-				if(isUppercase)
-				{
-					ch = String.valueOf(currentChars[i]).toUpperCase().charAt(0);
-				}
-				g.drawChar(ch, i*12, getHeight() - inputHeight, Graphics.LEFT | Graphics.TOP);
-				if(currentChars[currentKeyStep] == currentChars[i])
-				{
-					g.drawRect(i*12 - 2, getHeight() - inputHeight - 2, inputFont.charWidth(ch)+ 4, inputHeight + 4);
-				}
-			}
-		}
-	}
-	
-	// scroll
-	/*
-	void ScrollUp()
-	{
-	}
-	
-	void ScrollDown()
-	{
-	}
-	// ?
-	void ScrollLeft()
-	{
-	}
-	// ?
-	void ScrollRight()
-	{
-	}
-	*/
 }

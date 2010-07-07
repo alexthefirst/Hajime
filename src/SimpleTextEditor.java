@@ -1,7 +1,6 @@
 import javax.microedition.lcdui.*;
 import javax.microedition.midlet.*;
 
-import java.io.IOException;
 import java.util.Vector;
 
 import org.hecl.Interp;
@@ -9,6 +8,7 @@ import org.hecl.HeclException;
 import org.hecl.HeclTask;
 import org.hecl.ListThing;
 import org.hecl.ObjectThing;
+import org.hecl.StringThing;
 import org.hecl.Thing;
 import org.hecl.midp20.MidletCmd;
 import org.hecl.misc.HeclUtils;
@@ -16,18 +16,21 @@ import org.hecl.net.HttpCmd;
 import org.hecl.net.Base64Cmd;
 import org.hecl.rms.RMSCmd;
 
-public class SimpleTextEditor extends MIDlet //  implements CommandListener
+import java.util.*;
+import java.io.*;
+import javax.microedition.io.*;
+import javax.microedition.io.file.*;
+
+public class SimpleTextEditor extends MIDlet
 {
 	protected Interp interp = null;
 	protected HeclTask evaltask = null;
 	protected String[] args = {};
 	protected boolean started = false;
 	
-	// private Command exitCommand;
+	public Display display;
 	
-	private Display display;
-	
-	private Displayable current = null;
+	public Displayable current = null;
 	
 	private ExtendedTextField textField;
 	
@@ -39,20 +42,8 @@ public class SimpleTextEditor extends MIDlet //  implements CommandListener
 		
 		textField.midlet = this;
 		
-		// exitCommand = new Command("Exit", Command.EXIT, 1);
+		current = textField;
 	}
-	
-	/*
-	public void commandAction(Command c, Displayable s)
-	{
-		if(c == exitCommand)
-		{
-			// Cleanup and notify that the MIDlet has exited
-			destroyApp(false);
-			notifyDestroyed();
-		}
-	}
-	*/
 	
 	protected void startApp() throws MIDletStateChangeException
 	{
@@ -66,12 +57,10 @@ public class SimpleTextEditor extends MIDlet //  implements CommandListener
 		}
 		started = true;
 		
-		// Display.getDisplay(this).setCurrent(new ExtendedTextField());
-		
 		if(current == null)
 		{
-			// temp:
 			display.setCurrent(textField);
+			current = textField;
 		}
 		else
 		{
@@ -80,11 +69,6 @@ public class SimpleTextEditor extends MIDlet //  implements CommandListener
 		
 		try
 		{
-			// Alert a = new Alert("Loading Hecl", "Loading Hecl...", null, null); // AlertType.INFO
-			// display.setCurrent(a);
-			// a.setTimeout(Alert.FOREVER);
-			// a.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
-			
 			interp = new Interp();
 			Vector v = new Vector();
 			for(int i = 0; i < args.length; ++i)
@@ -97,38 +81,26 @@ public class SimpleTextEditor extends MIDlet //  implements CommandListener
 			RMSCmd.load(interp);
 			HttpCmd.load(interp);
 			Base64Cmd.load(interp);
-			//if locationapi == 1
-//			try 
-//			{
-//				Class.forName("javax.microedition.location.Location");
-//				org.hecl.location.LocationCmd.load(interp);
-//			}
-//			catch(Exception e)
-//			{
-//				
-//			}
-			//endif
 
-			//if kxml == 1
+			// if kxml == 1
 			org.hecl.kxml.KXMLCmd.load(interp);
-			//endif
+			// endif
 
-			//if files == 1
+			// if files == 1
 			org.hecl.files.FileCmds.load(interp);
 			org.hecl.files.HeclStreamCmds.load(interp);
 			org.hecl.files.FileFinderCmds.load(interp);
-			//endif
+			// endif
 
-			MidletCmd.load(interp,this);
-
-			//if mwt == 1
-			// org.hecl.mwtgui.MwtCmds.load(interp, this);
-			//endif
+			MidletCmd.load(interp, this);
 			
 			String scriptcontent =
-			HeclUtils.getResourceAsString(this.getClass(),"/script.hcl","UTF-8");
-
-			// interp.setVar("splash", ObjectThing.create(a));
+			HeclUtils.getResourceAsString(this.getClass(), "/script.hcl", "UTF-8");
+			
+			interp.setVar(":out", new Thing(""));
+			
+			interp.addCommand("quit", new QuitCmd(display, current)); 
+			
 			evaltask = interp.evalIdle(new Thing(scriptcontent));
 		}
 		catch(Exception e)
@@ -136,32 +108,22 @@ public class SimpleTextEditor extends MIDlet //  implements CommandListener
 			e.printStackTrace();
 			destroyApp(true);
 		}
-		
 	}
 	
 	protected void pauseApp()
 	{
 		current = display.getCurrent();
-		/*
+		
 		if(interp.commandExists("midlet.onpause"))
 		{
 			interp.evalAsync(new Thing("midlet.onpause"));
 		}
-		*/
 	}
 	
 	protected void destroyApp(boolean unconditional)
 	{
 		
 	}
-	
-	/**
-	* The <code>runScript</code> method exists so that external
-	* applications (emulators, primarily) can call into Hecl and run
-	* scripts.
-	*
-	* @param s a <code>String</code> value
-	*/
 	
 	public void runScript(String s)
 	{
@@ -201,5 +163,27 @@ public class SimpleTextEditor extends MIDlet //  implements CommandListener
 			System.err.println("Error in runScript: " + e);
 		}
 	}
-	
+
+	public String getOutput()
+	{
+		try
+		{
+			return StringThing.get(interp.getVar(":out"));
+		}
+		catch(Exception e)
+		{
+			// At least let the user know there was an error.
+			Alert a = new Alert("Hecl error", e.toString(), null, null);
+			Display display = Display.getDisplay(this);
+			display.setCurrent(a);
+			
+			System.err.println("Error in getOutput: " + e);
+		}
+		return "";
+	}
+
+	public void clearOutput()
+	{
+		interp.setVar(":out", new Thing("")); 
+	}
 }
