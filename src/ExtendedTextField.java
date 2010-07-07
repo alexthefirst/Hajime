@@ -7,6 +7,8 @@ import java.io.*;
 import javax.microedition.io.*;
 import javax.microedition.io.file.*;
 
+// TODO: save/save as
+
 public class ExtendedTextField extends Canvas implements Runnable, CommandListener
 {
 	private Command exit, save, open, eval, output, cls;
@@ -14,6 +16,8 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 	public SimpleTextEditor midlet;
 	
 	private FileBrowser fileBrowser;
+	
+	private String currentDirName = null;
 
 	static final String[] keyChars =
 	{
@@ -75,7 +79,6 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		
 		setCommandListener(this);
 		
-		// TODO: setupMenu if(isOutput) ?
 		exit = new Command("Exit", Command.EXIT, 1);
 		open = new Command("Open", Command.ITEM, 2);
 		save = new Command("Save", Command.ITEM, 3);
@@ -105,7 +108,6 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		addNewLine(0);
 	}
 	
-	// TODO: move to midlet?
 	public void commandAction(Command c, Displayable s)
 	{
 		if(c == exit)
@@ -117,20 +119,27 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		else if(c == save)
 		{
 			fileBrowserStatus = FileBrowserStatus.Save;
-			// 
+			
 			fileBrowser = new FileBrowser(this, midlet.display, midlet.current);
-			// fileBrowser.browse(null, this, false, midlet.display);
+			
+			fileBrowser.setCurrentDir(currentDirName);
+			
+			fileBrowser.browse();
 		}
 		else if(c == open)
 		{
 			fileBrowserStatus = FileBrowserStatus.Open;
-			// 
+			
 			fileBrowser = new FileBrowser(this, midlet.display, midlet.current);
-			// fileBrowser.browse(null, this, false, midlet.display);
+			
+			fileBrowser.setCurrentDir(currentDirName);
+			
+			fileBrowser.browse();
 		}
 		
 		else if(c == FileBrowser.select)
 		{
+			currentDirName = fileBrowser.getCurrentDir();
 			switch(fileBrowserStatus)
 			{
 				case FileBrowserStatus.Open:
@@ -149,6 +158,7 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		
 		else if(c == FileBrowser.cancel)
 		{
+			currentDirName = fileBrowser.getCurrentDir();
 			midlet.display.setCurrent(this);
 		}
 		
@@ -525,7 +535,6 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		
 		if(!goToNextChar)
 		{
-			// TODO: translate ?
 			displayCharacterMap(g);
 		}
 	}
@@ -1108,5 +1117,6 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 		
 		setCursorPosition(0, 0);
+		updateCaretPosition();
 	}
 }

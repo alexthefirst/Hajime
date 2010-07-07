@@ -3,7 +3,7 @@ import java.io.*;
 import javax.microedition.io.*;
 import javax.microedition.io.file.*;
 import javax.microedition.lcdui.*;
-
+// TODO: keep current dir
 class FileBrowser implements CommandListener
 {
 	private static final String UP_DIRECTORY = "..";
@@ -38,7 +38,24 @@ class FileBrowser implements CommandListener
 		this.externalListener = externalListener;
 		
 		currDirName = ROOT;
+	}
+	
+	public void browse()
+	{
 		showCurrDir();
+	}
+	
+	public void setCurrentDir(String currentDirName)
+	{
+		if(currentDirName != null)
+		{
+			this.currDirName = currentDirName;
+		}
+	}
+	
+	public String getCurrentDir()
+	{
+		return currDirName;
 	}
 	
 	private Displayable displayable;
@@ -75,7 +92,7 @@ class FileBrowser implements CommandListener
 		}
 		else if(c == create)
 		{
-			createFile();
+			createFileForm();
 		}
 		else if(c == createConfirm)
 		{
@@ -92,6 +109,7 @@ class FileBrowser implements CommandListener
 				// Create file in a separate thread and disable all commands
 				// except for "Cancel"
 				executeCreateFile(newName, false);
+				
 				newFileForm.removeCommand(createConfirm);
 				newFileForm.removeCommand(createCancel);
 			}
@@ -215,7 +233,7 @@ class FileBrowser implements CommandListener
 		).start();
 	}
     
-	void createFile()
+	void createFileForm()
 	{
 		newFileForm = new Form("New File");
 		nameTextField = new TextField("Enter Name", null, 256, TextField.ANY);
@@ -278,6 +296,8 @@ class FileBrowser implements CommandListener
 			outputStreamWriter.close();
 			
 			outputStream.close();
+			
+			fileConnection.close();
 		}
 	}
 	
@@ -305,6 +325,8 @@ class FileBrowser implements CommandListener
 			inputStream.close();
 			
 			text = buffer.toString();
+			
+			fileConnection.close();
 		}
 		
 		return text;
