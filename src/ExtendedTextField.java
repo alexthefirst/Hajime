@@ -7,17 +7,19 @@ import java.io.*;
 import javax.microedition.io.*;
 import javax.microedition.io.file.*;
 
-// TODO: save/save as
+// TODO: scroll bar
+// TODO: view filename
 
 public class ExtendedTextField extends Canvas implements Runnable, CommandListener
 {
-	private Command exit, save, open, eval, output, cls;
+	private Command exit, save, saveAs, open, eval, output, cls;
 	
-	public SimpleTextEditor midlet;
+	public Hajime midlet;
 	
 	private FileBrowser fileBrowser;
 	
 	private String currentDirName = null;
+	private String currentFileName = null;
 
 	static final String[] keyChars =
 	{
@@ -82,20 +84,18 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		exit = new Command("Exit", Command.EXIT, 1);
 		open = new Command("Open", Command.ITEM, 2);
 		save = new Command("Save", Command.ITEM, 3);
-		eval = new Command("Eval", Command.ITEM, 4);
-		output = new Command("Output", Command.ITEM, 5);
-		cls = new Command("Clear", Command.ITEM, 6);
+		saveAs = new Command("Save As", Command.ITEM, 4);
+		eval = new Command("Eval", Command.ITEM, 5);
+		output = new Command("Output", Command.ITEM, 6);
+		cls = new Command("Clear", Command.ITEM, 7);
 		
 		addCommand(exit);
 		addCommand(open);
 		addCommand(save);
+		addCommand(saveAs);
 		addCommand(eval);
 		addCommand(output);
 		addCommand(cls);
-		
-		// fileBrowser = new FileBrowser();
-		
-		// fileBrowser = new FileBrowser(this, midlet.display);
 		
 		new Thread(this).start();
 		
@@ -118,9 +118,19 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 		else if(c == save)
 		{
+			fileBrowser = new FileBrowser(this, midlet.display);
+			
+			fileBrowser.setCurrentDir(currentDirName);
+			
+			fileBrowser.setCurrentFile(currentFileName);
+			
+			Save();
+		}
+		else if(c == saveAs)
+		{
 			fileBrowserStatus = FileBrowserStatus.Save;
 			
-			fileBrowser = new FileBrowser(this, midlet.display, midlet.current);
+			fileBrowser = new FileBrowser(this, midlet.display);
 			
 			fileBrowser.setCurrentDir(currentDirName);
 			
@@ -130,7 +140,7 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		{
 			fileBrowserStatus = FileBrowserStatus.Open;
 			
-			fileBrowser = new FileBrowser(this, midlet.display, midlet.current);
+			fileBrowser = new FileBrowser(this, midlet.display);
 			
 			fileBrowser.setCurrentDir(currentDirName);
 			
@@ -140,6 +150,7 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		else if(c == FileBrowser.select)
 		{
 			currentDirName = fileBrowser.getCurrentDir();
+			currentFileName = fileBrowser.getCurrentFile();
 			switch(fileBrowserStatus)
 			{
 				case FileBrowserStatus.Open:
@@ -153,15 +164,16 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 				default: break;
 			}
 			
+			fileBrowserStatus = FileBrowserStatus.None;
+			
 			midlet.display.setCurrent(this);
 		}
-		
 		else if(c == FileBrowser.cancel)
 		{
-			currentDirName = fileBrowser.getCurrentDir();
+			// currentDirName = fileBrowser.getCurrentDir();
+			// currentFileName = fileBrowser.getCurrentFile();
 			midlet.display.setCurrent(this);
 		}
-		
 		else if(c == eval)
 		{
 			Runnable r =
@@ -442,7 +454,6 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 			}
 			else
 			{
-				// System.out.println(currentKeyStep);
 				updateCharacter(ch);
 			}
 			

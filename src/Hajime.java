@@ -21,7 +21,7 @@ import java.io.*;
 import javax.microedition.io.*;
 import javax.microedition.io.file.*;
 
-public class SimpleTextEditor extends MIDlet
+public class Hajime extends MIDlet
 {
 	protected Interp interp = null;
 	protected HeclTask evaltask = null;
@@ -34,7 +34,7 @@ public class SimpleTextEditor extends MIDlet
 	
 	private ExtendedTextField textField;
 	
-	public SimpleTextEditor()
+	public Hajime()
 	{
 		display = Display.getDisplay(this);
 		

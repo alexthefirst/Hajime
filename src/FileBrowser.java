@@ -3,16 +3,16 @@ import java.io.*;
 import javax.microedition.io.*;
 import javax.microedition.io.file.*;
 import javax.microedition.lcdui.*;
-// TODO: keep current dir
+
 class FileBrowser implements CommandListener
 {
 	private static final String UP_DIRECTORY = "..";
 	private static final String ROOT = "/";
 	private static final String SEP_STR = "/";
 	private static final char SEP = '/';
-	private String currDirName;
+	private String currentDirName;
 	
-	private String currFileName;
+	private String currentFileName;
 	
 	public final static Command select = new Command("Select", Command.ITEM, 1);
 	public final static Command cancel = new Command("Cancel", Command.BACK, 2);
@@ -27,35 +27,45 @@ class FileBrowser implements CommandListener
 	private CommandListener externalListener;
 	
 	private Display display;
-	private Displayable current;
 	
-	private FileConnection fileConnection;
-	
-	public FileBrowser(CommandListener externalListener, Display display, Displayable current)
+	public FileBrowser(CommandListener externalListener, Display display)
 	{
 		this.display = display;
-		this.current = current;
+		
 		this.externalListener = externalListener;
 		
-		currDirName = ROOT;
+		currentDirName = ROOT;
 	}
 	
 	public void browse()
 	{
-		showCurrDir();
+		showcurrentDir();
 	}
 	
 	public void setCurrentDir(String currentDirName)
 	{
 		if(currentDirName != null)
 		{
-			this.currDirName = currentDirName;
+			this.currentDirName = currentDirName;
+		}
+	}
+	
+	public void setCurrentFile(String currentFileName)
+	{
+		if(currentFileName != null)
+		{
+			this.currentFileName = currentFileName;
 		}
 	}
 	
 	public String getCurrentDir()
 	{
-		return currDirName;
+		return currentDirName;
+	}
+	
+	public String getCurrentFile()
+	{
+		return currentFileName;
 	}
 	
 	private Displayable displayable;
@@ -66,19 +76,19 @@ class FileBrowser implements CommandListener
 		{
 			displayable = d;
 			List curr = (List)d;
-			final String currFile = curr.getString(curr.getSelectedIndex());
+			final String currentFile = curr.getString(curr.getSelectedIndex());
 			new Thread(
 				new Runnable()
 				{
 					public void run()
 					{
-						if(currFile.endsWith(SEP_STR) || currFile.equals(UP_DIRECTORY))
+						if(currentFile.endsWith(SEP_STR) || currentFile.equals(UP_DIRECTORY))
 						{
-							traverseDirectory(currFile);
+							traverseDirectory(currentFile);
 						}
 						else
 						{
-							currFileName = currFile;
+							currentFileName = currentFile;
 							
 							if(externalListener != null) externalListener.commandAction(select, displayable);
 						}
@@ -116,28 +126,28 @@ class FileBrowser implements CommandListener
 		}
 		else if(c == createCancel)
 		{
-			showCurrDir();
+			showcurrentDir();
 		}
 	}
 	
-	void showCurrDir()
+	void showcurrentDir()
 	{
 		Enumeration e;
-		FileConnection currDir = null;
+		FileConnection currentDir = null;
 		List browser;
 
 		try
 		{
-			if(ROOT.equals(currDirName))
+			if(ROOT.equals(currentDirName))
 			{
 				e = FileSystemRegistry.listRoots();
-				browser = new List(currDirName, List.IMPLICIT);
+				browser = new List(currentDirName, List.IMPLICIT);
 			}
 			else
 			{
-				currDir = (FileConnection)Connector.open("file://localhost/" + currDirName);
-				e = currDir.list();
-				browser = new List(currDirName, List.IMPLICIT);
+				currentDir = (FileConnection)Connector.open("file://localhost/" + currentDirName);
+				e = currentDir.list();
+				browser = new List(currentDirName, List.IMPLICIT);
 				// not root - draw UP_DIRECTORY
 				browser.append(UP_DIRECTORY, null);
 			}
@@ -161,7 +171,7 @@ class FileBrowser implements CommandListener
 			browser.setSelectCommand(select);
 
 			//Do not allow creating files/directories beside root
-			if(!ROOT.equals(currDirName))
+			if(!ROOT.equals(currentDirName))
 			{
 				browser.addCommand(create);
 			}
@@ -170,9 +180,9 @@ class FileBrowser implements CommandListener
 
 			browser.setCommandListener(this);
 
-			if(currDir != null)
+			if(currentDir != null)
 			{
-				currDir.close();
+				currentDir.close();
 			}
 
 			display.setCurrent(browser);
@@ -187,35 +197,35 @@ class FileBrowser implements CommandListener
 	{
 		// In case of directory just change the current directory
 		// and show it
-		if(currDirName.equals(ROOT))
+		if(currentDirName.equals(ROOT))
 		{
 			if(fileName.equals(UP_DIRECTORY))
 			{
 				// can not go up from ROOT
 				return;
 			}
-			currDirName = fileName;
+			currentDirName = fileName;
 		}
 		else if(fileName.equals(UP_DIRECTORY))
 		{
 			// Go up one directory
-			int i = currDirName.lastIndexOf(SEP, currDirName.length() - 2);
+			int i = currentDirName.lastIndexOf(SEP, currentDirName.length() - 2);
 
 			if(i != -1)
 			{
-				currDirName = currDirName.substring(0, i + 1);
+				currentDirName = currentDirName.substring(0, i + 1);
 			}
 			else
 			{
-				currDirName = ROOT;
+				currentDirName = ROOT;
 			}
 		}
 		else
 		{
-			currDirName = currDirName + fileName;
+			currentDirName = currentDirName + fileName;
 		}
 		
-		showCurrDir();
+		showcurrentDir();
 	}
 
 
@@ -248,7 +258,7 @@ class FileBrowser implements CommandListener
 	{
 		try
 		{
-			FileConnection fileConnection = (FileConnection)Connector.open("file:///" + currDirName + newName);
+			FileConnection fileConnection = (FileConnection)Connector.open("file:///" + currentDirName + newName);
 
 			if(isDirectory)
 			{
@@ -259,7 +269,7 @@ class FileBrowser implements CommandListener
 				fileConnection.create();
 			}
 
-			showCurrDir();
+			showcurrentDir();
 		}
 		catch(Exception e)
 		{
@@ -282,7 +292,7 @@ class FileBrowser implements CommandListener
 
 	public void writeFile(String text) throws IOException
 	{
-		FileConnection fileConnection = (FileConnection)Connector.open("file://localhost/" + currDirName + currFileName, Connector.READ_WRITE);
+		FileConnection fileConnection = (FileConnection)Connector.open("file://localhost/" + currentDirName + currentFileName, Connector.READ_WRITE);
 		if(fileConnection.exists())
 		{
 			fileConnection.truncate(0);
@@ -303,7 +313,7 @@ class FileBrowser implements CommandListener
 	
 	public String readFile() throws IOException
 	{
-        FileConnection fileConnection = (FileConnection)Connector.open("file://localhost/" + currDirName + currFileName, Connector.READ);
+        FileConnection fileConnection = (FileConnection)Connector.open("file://localhost/" + currentDirName + currentFileName, Connector.READ);
 		String text = "";
 		if(fileConnection.exists())
 		{
