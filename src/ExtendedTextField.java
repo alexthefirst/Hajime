@@ -75,11 +75,17 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 	
 	private short fileBrowserStatus = FileBrowserStatus.None;
 	
-        private boolean viewScrollBar = false;
-        
-        long scrollBarDelay = 1000L;
-        
-        long lastScrollBarTimestamp = 0;
+	private boolean viewScrollBar = false;
+
+	long scrollBarDelay = 1000L;
+
+	long lastScrollBarTimestamp = 0;
+
+	boolean viewFileName = false;
+
+	long fileNameDelay = 5000L;
+
+	long lastFileNameTimestamp = 0;
         
 	public ExtendedTextField()
 	{
@@ -157,6 +163,8 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		{
 			currentDirName = fileBrowser.getCurrentDir();
 			currentFileName = fileBrowser.getCurrentFile();
+			viewFileName = true;
+			lastFileNameTimestamp = System.currentTimeMillis();
 			switch(fileBrowserStatus)
 			{
 				case FileBrowserStatus.Open:
@@ -176,8 +184,8 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 		else if(c == FileBrowser.cancel)
 		{
-			// currentDirName = fileBrowser.getCurrentDir();
-			// currentFileName = fileBrowser.getCurrentFile();
+			viewFileName = true;
+			lastFileNameTimestamp = System.currentTimeMillis();
 			midlet.display.setCurrent(this);
 		}
 		else if(c == eval)
@@ -341,15 +349,15 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 		else if(gameAction == Canvas.UP)
 		{
-                        viewScrollBar = true;
-                        lastScrollBarTimestamp = System.currentTimeMillis();
+			viewScrollBar = true;
+			lastScrollBarTimestamp = System.currentTimeMillis();
 			moveCursor(CURSOR_UP);
 			updateCaretPosition();
 		}
 		else if(gameAction == Canvas.DOWN)
 		{
-                        viewScrollBar = true;
-                        lastScrollBarTimestamp = System.currentTimeMillis();
+			viewScrollBar = true;
+			lastScrollBarTimestamp = System.currentTimeMillis();
 			moveCursor(CURSOR_DOWN);
 			updateCaretPosition();
 		}
@@ -397,15 +405,15 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 		else if(gameAction == Canvas.UP)
 		{
-                        viewScrollBar = true;
-                        lastScrollBarTimestamp = System.currentTimeMillis();
+			viewScrollBar = true;
+			lastScrollBarTimestamp = System.currentTimeMillis();
 			moveCursor(CURSOR_UP);
 			updateCaretPosition();
 		}
 		else if(gameAction == Canvas.DOWN)
 		{
-                        viewScrollBar = true;
-                        lastScrollBarTimestamp = System.currentTimeMillis();
+			viewScrollBar = true;
+			lastScrollBarTimestamp = System.currentTimeMillis();
 			moveCursor(CURSOR_DOWN);
 			updateCaretPosition();
 		}
@@ -489,11 +497,16 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		{
 			goToNextChar = true;
 		}
-                
-                if(scrollBarDelay + lastScrollBarTimestamp < currentTime)
-                {
-                    viewScrollBar = false;
-                }
+
+		if(scrollBarDelay + lastScrollBarTimestamp < currentTime)
+		{
+			viewScrollBar = false;
+		}
+
+		if(fileNameDelay + lastFileNameTimestamp < currentTime)
+		{
+			viewFileName = false;
+		}                
 	}
 	
 	public void run()
@@ -568,11 +581,15 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		{
 			displayCharacterMap(g);
 		}
+		else if(viewFileName)
+		{
+			displayFileName(g);
+		}
 
-                if(viewScrollBar)
-                {
-                    displayScrollBar(g);
-                }
+		if(viewScrollBar)
+		{
+			displayScrollBar(g);
+		}
 	}
 	
 	// display
@@ -616,9 +633,9 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		if(currentChars != null)
 		{
 			g.setColor(0xffffff);
-			g.fillRect(0, getHeight() - inputHeight, getWidth(), inputHeight);
+			g.fillRect(0, getHeight() - inputHeight - 2, getWidth(), inputHeight + 2);
 			g.setColor(0x000000);
-			
+			g.drawLine(0, getHeight() - inputHeight - 2, getWidth(), getHeight() - inputHeight - 2);
 			for(int i = 0; i < currentChars.length; i++)
 			{
 				char ch = currentChars[i];
@@ -638,16 +655,27 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 	}
 	
+	void displayFileName(Graphics g)
+	{
+		if(currentDirName != null && currentFileName != null)
+		{
+			g.setColor(0xffffff);
+			g.fillRect(0, getHeight() - inputHeight - 2, getWidth(), inputHeight + 2);
+			g.setColor(0x000000);
+			g.drawLine(0, getHeight() - inputHeight - 2, getWidth(), getHeight() - inputHeight - 2);
+			g.drawString(currentDirName + currentFileName, 0, getHeight() - inputHeight - 2, Graphics.LEFT | Graphics.TOP);
+		}
+	}
+        
 	void displayScrollBar(Graphics g)
 	{
 		int x = getCursorX();
 		int y = getCursorY();
-                g.setColor(0xffffff);
-                g.fillRect(getWidth()-5, 0, 5, getHeight());
+		g.setColor(0xffffff);
+		g.fillRect(getWidth()-5, 0, 5, getHeight());
 		g.setColor(0x000000);
-                g.drawLine(getWidth()-5, 0, getWidth()-5, getHeight());
+		g.drawLine(getWidth()-5, 0, getWidth()-5, getHeight());
 		g.fillRect(getWidth()-5, linesOnScreen*y*inputHeight/getLinesCount(), 5, inputHeight);
-		
 	}
 	/////////////////////////////
 	
