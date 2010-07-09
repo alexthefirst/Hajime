@@ -75,6 +75,12 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 	
 	private short fileBrowserStatus = FileBrowserStatus.None;
 	
+        private boolean viewScrollBar = false;
+        
+        long scrollBarDelay = 1000L;
+        
+        long lastScrollBarTimestamp = 0;
+        
 	public ExtendedTextField()
 	{
 		setFullScreenMode(true);
@@ -335,11 +341,15 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 		else if(gameAction == Canvas.UP)
 		{
+                        viewScrollBar = true;
+                        lastScrollBarTimestamp = System.currentTimeMillis();
 			moveCursor(CURSOR_UP);
 			updateCaretPosition();
 		}
 		else if(gameAction == Canvas.DOWN)
 		{
+                        viewScrollBar = true;
+                        lastScrollBarTimestamp = System.currentTimeMillis();
 			moveCursor(CURSOR_DOWN);
 			updateCaretPosition();
 		}
@@ -387,11 +397,15 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 		else if(gameAction == Canvas.UP)
 		{
+                        viewScrollBar = true;
+                        lastScrollBarTimestamp = System.currentTimeMillis();
 			moveCursor(CURSOR_UP);
 			updateCaretPosition();
 		}
 		else if(gameAction == Canvas.DOWN)
 		{
+                        viewScrollBar = true;
+                        lastScrollBarTimestamp = System.currentTimeMillis();
 			moveCursor(CURSOR_DOWN);
 			updateCaretPosition();
 		}
@@ -470,10 +484,16 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 			caretBlinkOn = !caretBlinkOn;
 			lastCaretBlink = currentTime;
 		}
+                
 		if(!goToNextChar && lastKeyTimestamp + maxKeyDelay < currentTime)
 		{
 			goToNextChar = true;
 		}
+                
+                if(scrollBarDelay + lastScrollBarTimestamp < currentTime)
+                {
+                    viewScrollBar = false;
+                }
 	}
 	
 	public void run()
@@ -548,6 +568,11 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		{
 			displayCharacterMap(g);
 		}
+
+                if(viewScrollBar)
+                {
+                    displayScrollBar(g);
+                }
 	}
 	
 	// display
@@ -613,6 +638,17 @@ public class ExtendedTextField extends Canvas implements Runnable, CommandListen
 		}
 	}
 	
+	void displayScrollBar(Graphics g)
+	{
+		int x = getCursorX();
+		int y = getCursorY();
+                g.setColor(0xffffff);
+                g.fillRect(getWidth()-5, 0, 5, getHeight());
+		g.setColor(0x000000);
+                g.drawLine(getWidth()-5, 0, getWidth()-5, getHeight());
+		g.fillRect(getWidth()-5, linesOnScreen*y*inputHeight/getLinesCount(), 5, inputHeight);
+		
+	}
 	/////////////////////////////
 	
 	// characters
